@@ -194,20 +194,7 @@ void *kContextActivePanel = &kContextActivePanel;
 - (void) hotkeyWithEvent:(NSEvent *)hkEvent
 {
     NSLog(@"hot key!");
-
-    NSDate * now = [NSDate date];
-    NSTimeInterval minutesElapsed = [now timeIntervalSinceDate:self.lastTime] / 60;
-
     [self togglePanel:self];
-    
-    if (minutesElapsed > 15) {
-        NSLog(@"%f minutes elapsed -- asking password again ",minutesElapsed);
-        // get focus
-        [[NSRunningApplication currentApplication] activateWithOptions:0];
-        // ask password again.
-        [self readDB];
-    }
-
 }
 
 //recursive search through tree
@@ -235,11 +222,23 @@ void *kContextActivePanel = &kContextActivePanel;
 
 - (IBAction)togglePanel:(id)sender
 {
-    self.lastTime = [NSDate date];
+    NSDate * now = [NSDate date];
+    NSTimeInterval minutesElapsed = [now timeIntervalSinceDate:self.lastTime] / 60;
+    self.lastTime = now;
+    
     NSLog(@"Now recording time: %@", self.lastTime);
 
     self.menubarController.hasActiveIcon = !self.menubarController.hasActiveIcon;
     self.panelController.hasActivePanel = self.menubarController.hasActiveIcon;
+
+    if (self.panelController.hasActivePanel && (minutesElapsed > 15)) {
+        NSLog(@"%f minutes elapsed -- asking password again ",minutesElapsed);
+        // get focus
+        [[NSRunningApplication currentApplication] activateWithOptions:0];
+        // ask password again.
+        [self readDB];
+    }
+
 }
 
 - (void) openWithConfiguration
