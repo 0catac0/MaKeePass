@@ -176,6 +176,7 @@ void *kContextActivePanel = &kContextActivePanel;
     
     @try {
         kdbTree = [[KdbReaderFactory load:self.dbPath withPassword:kdbPassword] retain];
+        // TODO: do we need to dealloc the previous value of kdbTree first since we don't use accessors?
         
         //tree read was succesful so, save settings (path to db & path to key)
         NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
@@ -183,6 +184,11 @@ void *kContextActivePanel = &kContextActivePanel;
         [userDefaults setObject:self.keyPath forKey:@"maKeePassKey"];
         
     } @catch (NSException * exception) {
+        // TODO: what does the semantics of Objective C say about the state of the kdbTree variable
+        // if the evaluation of the right hand side of the assignment above results in an exception?
+        // Just to be sure:
+        kdbTree = nil;
+        
         // Ignore
         //[label setStringValue:@"Password fail"];
     }
