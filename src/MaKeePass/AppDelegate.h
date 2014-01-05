@@ -20,6 +20,7 @@
     PanelController * panelController;
     NSString * dbPath;
     NSString * keyPath;
+    NSDate * lastTime;
 }
 
 @property (nonatomic, retain) MenubarController *menubarController;
@@ -27,6 +28,7 @@
 @property (nonatomic, retain) KdbEntry * currentEntry;
 @property (nonatomic, retain) NSString * dbPath;
 @property (nonatomic, retain) NSString *keyPath;
+@property (nonatomic, retain) NSDate *lastTime;
 
 - (void) search:(NSString*)text;
 - (void) hotkeyWithEvent:(NSEvent *)hkEvent;

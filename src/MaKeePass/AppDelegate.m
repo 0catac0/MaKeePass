@@ -29,6 +29,7 @@
 @synthesize currentEntry;
 @synthesize keyPath;
 @synthesize dbPath;
+@synthesize lastTime;
 
 #pragma mark -
 
@@ -66,7 +67,21 @@ void *kContextActivePanel = &kContextActivePanel;
         
         [self togglePanel:nil];
         [[NSApplication sharedApplication] hide:self];
+
+        NSTimer *timer;
+        timer = [NSTimer scheduledTimerWithTimeInterval: 10
+                                                 target: self
+                                               selector: @selector(clearClipboardContents:)
+                                               userInfo: nil
+                                                repeats: YES];
+    
     }
+}
+
+- (void) clearClipboardContents:(NSTimer *)timer {
+    NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+    [pasteboard clearContents];
+    [timer invalidate];
 }
 
 - (void) search:(NSString*)text
@@ -117,7 +132,6 @@ void *kContextActivePanel = &kContextActivePanel;
     
     //setup hotkey
     DDHotKeyCenter * c = [[DDHotKeyCenter alloc] init];
-    [c unregisterHotKeyWithKeyCode:KEY_P modifierFlags:NSCommandKeyMask];
 	if (![c registerHotKeyWithKeyCode:KEY_P modifierFlags:NSControlKeyMask target:self action:@selector(hotkeyWithEvent:    ) object:nil])
     {
         NSLog(@"Failed to register hotkey ctrl-tab");
@@ -148,11 +162,7 @@ void *kContextActivePanel = &kContextActivePanel;
         self.keyPath = [userDefaults objectForKey:@"maKeePassKey"];
     }
     
-    if(self.dbPath != nil && self.keyPath != nil)
-    {
-        [self readDB];
-    }
-
+    self.lastTime = [NSDate distantPast];
 }
 
 - (void) readDB
@@ -184,7 +194,20 @@ void *kContextActivePanel = &kContextActivePanel;
 - (void) hotkeyWithEvent:(NSEvent *)hkEvent
 {
     NSLog(@"hot key!");
+
+    NSDate * now = [NSDate date];
+    NSTimeInterval minutesElapsed = [now timeIntervalSinceDate:self.lastTime] / 60;
+
     [self togglePanel:self];
+    
+    if (minutesElapsed > 15) {
+        NSLog(@"%f minutes elapsed -- asking password again ",minutesElapsed);
+        // get focus
+        [[NSRunningApplication currentApplication] activateWithOptions:0];
+        // ask password again.
+        [self readDB];
+    }
+
 }
 
 //recursive search through tree
@@ -212,6 +235,9 @@ void *kContextActivePanel = &kContextActivePanel;
 
 - (IBAction)togglePanel:(id)sender
 {
+    self.lastTime = [NSDate date];
+    NSLog(@"Now recording time: %@", self.lastTime);
+
     self.menubarController.hasActiveIcon = !self.menubarController.hasActiveIcon;
     self.panelController.hasActivePanel = self.menubarController.hasActiveIcon;
 }
