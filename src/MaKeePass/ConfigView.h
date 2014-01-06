@@ -3,7 +3,7 @@
 //  MaKeePass
 //
 //  Created by Taco van Dijk on 9/24/12.
-//  Copyright (c) 2012 Waag Society. All rights reserved.
+//  Copyright (c) 2012 Self. All rights reserved.
 //
 
 #import <Cocoa/Cocoa.h>

@@ -21,6 +21,8 @@
     NSString * dbPath;
     NSString * keyPath;
     NSDate * lastTime;
+    NSNumber * intervalClip;
+    NSNumber * intervalPass;
 }
 
 @property (nonatomic, retain) MenubarController *menubarController;
@@ -29,6 +31,8 @@
 @property (nonatomic, retain) NSString * dbPath;
 @property (nonatomic, retain) NSString *keyPath;
 @property (nonatomic, retain) NSDate *lastTime;
+@property (nonatomic, retain) NSNumber * intervalClip;
+@property (nonatomic, retain) NSNumber * intervalPass;
 
 - (void) search:(NSString*)text;
 - (void) hotkeyWithEvent:(NSEvent *)hkEvent;

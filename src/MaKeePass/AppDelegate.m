@@ -7,15 +7,13 @@
 //
 
 /*
- TODO
- - configure database & keys
- - auto expire access & pasteboard
  - implement password lock screen instead of alert with unlimited tries
- - icon
  */
 
 #import "AppDelegate.h"
 #define KEY_P 35
+#define INTERVAL_CLEAR_CLIP_SECONDS 10
+#define INTERVAL_PASSWORD_MINUTES 15
 
 @interface AppDelegate ()
 
@@ -30,6 +28,8 @@
 @synthesize keyPath;
 @synthesize dbPath;
 @synthesize lastTime;
+@synthesize intervalPass;
+@synthesize intervalClip;
 
 #pragma mark -
 
@@ -44,13 +44,13 @@
 
 void *kContextActivePanel = &kContextActivePanel;
 
-- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
+- (void)observeValueForKeyPath:(NSString *)aKeyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
 {
     if (context == kContextActivePanel) {
         self.menubarController.hasActiveIcon = self.panelController.hasActivePanel;
     }
     else {
-        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+        [super observeValueForKeyPath:aKeyPath ofObject:object change:change context:context];
     }
 }
 
@@ -69,7 +69,7 @@ void *kContextActivePanel = &kContextActivePanel;
         [[NSApplication sharedApplication] hide:self];
 
         NSTimer *timer;
-        timer = [NSTimer scheduledTimerWithTimeInterval: 10
+        timer = [NSTimer scheduledTimerWithTimeInterval: self.intervalClip.intValue
                                                  target: self
                                                selector: @selector(clearClipboardContents:)
                                                userInfo: nil
@@ -86,8 +86,7 @@ void *kContextActivePanel = &kContextActivePanel;
 
 - (void) search:(NSString*)text
 {
-    NSLog(@"search action: %@",text);
-    
+    //NSLog(@"search action: %@",text);
     //search through the results
     NSMutableArray * results = [[NSMutableArray alloc] initWithCapacity:0];
     [self searchGroup:[kdbTree root] searchText:text results:results];
@@ -100,6 +99,8 @@ void *kContextActivePanel = &kContextActivePanel;
 }
 
 - (NSString *)input: (NSString *)prompt defaultValue: (NSString *)defaultValue {
+    
+    [[NSRunningApplication currentApplication] activateWithOptions:0];
     NSAlert *alert = [NSAlert alertWithMessageText: prompt
                                      defaultButton:@"OK"
                                    alternateButton:nil
@@ -126,7 +127,6 @@ void *kContextActivePanel = &kContextActivePanel;
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
-    
     self.menubarController = [[MenubarController alloc] init];
     NSLog(@"init");
     
@@ -134,23 +134,22 @@ void *kContextActivePanel = &kContextActivePanel;
     DDHotKeyCenter * c = [[DDHotKeyCenter alloc] init];
 	if (![c registerHotKeyWithKeyCode:KEY_P modifierFlags:NSControlKeyMask target:self action:@selector(hotkeyWithEvent:    ) object:nil])
     {
-        NSLog(@"Failed to register hotkey ctrl-tab");
+        NSLog(@"Failed to register hotkey ctrl-p");
     }
     else
     {
-        NSLog(@"registered hotkey");
         NSLog(@"Registered: %@", [c registeredHotKeys]);
     }
 	[c release];
     
-    //deregister hotkey
-    
-    
     // Insert code here to initialize your application
     self.dbPath = @"";
     self.keyPath = @"";
+    self.intervalClip = [NSNumber numberWithInt:INTERVAL_CLEAR_CLIP_SECONDS];
+    self.intervalPass = [NSNumber numberWithInt:INTERVAL_PASSWORD_MINUTES];
     
     //read user defaults
+    //see /Users/taco/Library/Preferences/0catac0.MaKeePass.plist
     NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     if([userDefaults objectForKey:@"maKeePassDB"] != nil)
     {
@@ -160,6 +159,24 @@ void *kContextActivePanel = &kContextActivePanel;
     if([userDefaults objectForKey:@"maKeePassKey"] != nil)
     {
         self.keyPath = [userDefaults objectForKey:@"maKeePassKey"];
+    }
+    
+    if([userDefaults objectForKey:@"maKeePassTimeoutClipboard"] != nil)
+    {
+        self.intervalClip = [userDefaults objectForKey:@"maKeePassTimeoutClipboard"];
+    }
+    else
+    {
+        [userDefaults setObject:self.intervalClip forKey:@"maKeePassTimeoutClipboard"];
+    }
+    
+    if([userDefaults objectForKey:@"maKeePassTimeoutPassword"] != nil)
+    {
+        self.intervalPass = [userDefaults objectForKey:@"maKeePassTimeoutPassword"];
+    }
+    else
+    {
+        [userDefaults setObject:self.intervalPass forKey:@"maKeePassTimeoutPassword"];
     }
     
     self.lastTime = [NSDate distantPast];
@@ -174,27 +191,31 @@ void *kContextActivePanel = &kContextActivePanel;
     // Try and load the database with the cached password from the keychain
     KdbPassword *kdbPassword = [[KdbPassword alloc] initWithPassword:password encoding:passwordEncoding keyfile:self.keyPath];
     
-    @try {
+    //TODO: release silently after expiry
+    if(kdbTree != nil)
+       [kdbTree release];
+    
+       @try {
         kdbTree = [[KdbReaderFactory load:self.dbPath withPassword:kdbPassword] retain];
-        // TODO: do we need to dealloc the previous value of kdbTree first since we don't use accessors?
         
         //tree read was succesful so, save settings (path to db & path to key)
         NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
         [userDefaults setObject:self.dbPath forKey:@"maKeePassDB"];
         [userDefaults setObject:self.keyPath forKey:@"maKeePassKey"];
         
+        //activate the panel, after slight delay
+        [self performSelector:@selector(togglePanel:) withObject:nil afterDelay:.5];
+        
     } @catch (NSException * exception) {
         // TODO: what does the semantics of Objective C say about the state of the kdbTree variable
         // if the evaluation of the right hand side of the assignment above results in an exception?
         // Just to be sure:
         kdbTree = nil;
-        
-        // Ignore
-        //[label setStringValue:@"Password fail"];
     }
     
     [kdbPassword release];
     [[NSApplication sharedApplication] hide:self];
+    
 }
 
 - (void) hotkeyWithEvent:(NSEvent *)hkEvent
@@ -237,7 +258,7 @@ void *kContextActivePanel = &kContextActivePanel;
     self.menubarController.hasActiveIcon = !self.menubarController.hasActiveIcon;
     self.panelController.hasActivePanel = self.menubarController.hasActiveIcon;
 
-    if (self.panelController.hasActivePanel && (minutesElapsed > 15)) {
+    if (self.panelController.hasActivePanel && (minutesElapsed > self.intervalPass.intValue)) {
         NSLog(@"%f minutes elapsed -- asking password again ",minutesElapsed);
         // get focus
         [[NSRunningApplication currentApplication] activateWithOptions:0];
