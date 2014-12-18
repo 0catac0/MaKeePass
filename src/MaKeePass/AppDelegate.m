@@ -100,7 +100,8 @@ void *kContextActivePanel = &kContextActivePanel;
 
 - (NSString *)input: (NSString *)prompt defaultValue: (NSString *)defaultValue {
     
-    [[NSRunningApplication currentApplication] activateWithOptions:0];
+   [[NSRunningApplication currentApplication] activateWithOptions:0];
+    
     NSAlert *alert = [NSAlert alertWithMessageText: prompt
                                      defaultButton:@"OK"
                                    alternateButton:nil
@@ -111,7 +112,9 @@ void *kContextActivePanel = &kContextActivePanel;
     [input setStringValue:defaultValue];
     [input autorelease];
     [alert setAccessoryView:input];
-    NSInteger button = [alert runModal];
+    
+    NSInteger button = [alert runModal];//this runs the actual popup
+    
     if (button == NSAlertDefaultReturn) {
         [input validateEditing];
         return [input stringValue];
@@ -184,6 +187,10 @@ void *kContextActivePanel = &kContextActivePanel;
 
 - (void) readDB
 {
+    if([self.dbPath isEqual:@""] || [self.keyPath isEqual:@""])
+    {
+        return;
+    }
     
     NSString * password = [self input:self.dbPath defaultValue:@""];
     static NSStringEncoding passwordEncoding = NSUTF8StringEncoding;
@@ -261,7 +268,7 @@ void *kContextActivePanel = &kContextActivePanel;
     if (self.panelController.hasActivePanel && (minutesElapsed > self.intervalPass.intValue)) {
         NSLog(@"%f minutes elapsed -- asking password again ",minutesElapsed);
         // get focus
-        [[NSRunningApplication currentApplication] activateWithOptions:0];
+        [[NSRunningApplication currentApplication] activateWithOptions:NSApplicationActivateIgnoringOtherApps];
         // ask password again.
         [self readDB];
     }
